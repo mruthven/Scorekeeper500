@@ -17,7 +17,16 @@ import kotlin.math.max
 
 class MainActivity : AppCompatActivity() {
 
-    var score = intArrayOf(0, 0, 0)
+    class Player (name: String, score: Int) {
+        var playerName = name
+        var playerScore = score
+
+        fun clear() {
+            playerName = "name"
+            playerScore = 0
+        }
+    }
+    var players = arrayOf (Player("name", 0), Player("name", 0), Player("name", 0))
     var currentEdit: TextView? = null
     var numPlayers = 3
 
@@ -38,7 +47,7 @@ class MainActivity : AppCompatActivity() {
         setupSpinner(R.id.suitspinner, R.array.suits)
         setupSpinner(R.id.tricksspinner, R.array.tricks)
         setupSpinner(R.id.wonorlost, R.array.wonorlost)
-        populatePlayerSpinner()
+        updatePlayerNameData()
         populateScoreTable()
     }
 
@@ -56,6 +65,7 @@ class MainActivity : AppCompatActivity() {
         toShow = findViewById<TextView>(R.id.p3score)
         toShow.visibility = View.GONE
         numPlayers = 4
+        players[2].clear()
     }
 
     fun textclicked(view: View) {
@@ -73,7 +83,7 @@ class MainActivity : AppCompatActivity() {
         editbox.visibility = View.INVISIBLE
         view.visibility = View.INVISIBLE
         hideKeyboard(view)
-        populatePlayerSpinner()
+        updatePlayerNameData()
     }
 
     fun okClicked(view: View) {
@@ -88,7 +98,7 @@ class MainActivity : AppCompatActivity() {
         } else if (wonspinner.selectedItemPosition == 2) {
             tableScore = max(tableScore, TEN_SCORE)
         }
-        score[playerspinner.selectedItemPosition] += tableScore
+        players[playerspinner.selectedItemPosition].playerScore += tableScore
         updateScores()
         return
         //Find selected tricks, suit, player, won/lost
@@ -116,16 +126,21 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun populatePlayerSpinner() {
+    private fun updatePlayerNameData() {
         val spinner = findViewById<Spinner>(R.id.playersspinner)
-        val player1 = findViewById<TextView>(R.id.p1name)
-        val player2 = findViewById<TextView>(R.id.p2name)
-        val player3 = findViewById<TextView>(R.id.p3name)
+        val player1 = findViewById<TextView>(R.id.p1name).text.toString()
+        val player2 = findViewById<TextView>(R.id.p2name).text.toString()
+        val player3 = findViewById<TextView>(R.id.p3name).text.toString()
+        players[0].playerName = player1
+        players[1].playerName = player2
+        if (numPlayers == 4) {
+            players[2].playerName = player3
+        }
         val playernames: Array<String>
         if (numPlayers == 3) {
-            playernames = arrayOf(player1.text.toString(), player2.text.toString(), player3.text.toString())
+            playernames = arrayOf(player1, player2, player3)
         } else {
-            playernames = arrayOf(player1.text.toString(), player2.text.toString())
+            playernames = arrayOf(player1, player2)
         }
         val adapter = ArrayAdapter(this,
                 android.R.layout.simple_spinner_item, playernames)
@@ -174,20 +189,24 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateScores() {
-        findViewById<TextView>(R.id.p1Score).text = score[0].toString()
-        findViewById<TextView>(R.id.p2score).text = score[1].toString()
-        findViewById<TextView>(R.id.p3score).text = score[2].toString()
+        findViewById<TextView>(R.id.p1Score).text = players[0].playerScore.toString()
+        findViewById<TextView>(R.id.p2score).text = players[1].playerScore.toString()
+        findViewById<TextView>(R.id.p3score).text = players[2].playerScore.toString()
     }
 
     private fun sendScores() {
         val queue = Volley.newRequestQueue(this)
         val url = "https://yt2wj64lsk.execute-api.us-east-2.amazonaws.com/default/updateScoreHistory"
-        val body = JSONObject()
-        body.put("tournamentID", "12345")
-        body.put("gameID", "666")
-        body.put("playerName", "Mike")
-        body.put("partnerName", "Doug")
-        val request = object : JsonObjectRequest(Method.PUT, url, body,
+        var body = constructBody(players[0])
+        var request = createRequest(Request.Method.PUT, body, url)
+        queue.add(request)
+        body = constructBody(players[1])
+        request = createRequest(Request.Method.PUT, body, url)
+        queue.add(request)
+    }
+
+    private fun createRequest(method: Int, body: JSONObject?, url: String): JsonObjectRequest {
+        val request = object: JsonObjectRequest(method, url, body,
                 Response.Listener { response ->
                     println(response.toString())
                 },
@@ -197,11 +216,23 @@ class MainActivity : AppCompatActivity() {
                 }) {
             override fun getHeaders(): MutableMap<String, String> {
                 val headers = HashMap<String, String>()
-                headers["x-api-key"] = ""
+                headers["x-api-key"] = getString(R.string.API_KEY)
                 return headers
             }
         }
-        queue.add(request)
+        return request
+    }
+
+    private fun constructBody(player: MainActivity.Player): JSONObject {
+        val body = JSONObject()
+        val pair1Player = player.playerName.substringBefore("/")
+        val pair1Partner = player.playerName.substringAfter("/")
+        body.put("tournamentID", "1234567")
+        body.put("gameID", "668")
+        body.put("playerName", pair1Player)
+        body.put("partnerName", pair1Partner)
+        body.put("score", player.playerScore.toString())
+        return body
     }
 
     private fun getScores() {
@@ -217,7 +248,7 @@ class MainActivity : AppCompatActivity() {
                 }) {
             override fun getHeaders(): MutableMap<String, String> {
                 val headers = HashMap<String, String>()
-                headers["x-api-key"] = ""
+                headers["x-api-key"] = getString(R.string.API_KEY)
                 return headers
             }
         }
