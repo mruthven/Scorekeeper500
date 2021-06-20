@@ -13,11 +13,12 @@ import com.android.volley.toolbox.JsonObjectRequest
 import com.android.volley.toolbox.Volley
 import org.json.JSONObject
 import java.nio.charset.Charset
+import java.time.Instant
 import kotlin.math.max
 
 class MainActivity : AppCompatActivity() {
 
-    class Player (name: String, score: Int) {
+    class Player(name: String, score: Int) {
         var playerName = name
         var playerScore = score
 
@@ -26,7 +27,8 @@ class MainActivity : AppCompatActivity() {
             playerScore = 0
         }
     }
-    var players = arrayOf (Player("name", 0), Player("name", 0), Player("name", 0))
+
+    var players = arrayOf(Player("name", 0), Player("name", 0), Player("name", 0))
     var currentEdit: TextView? = null
     var numPlayers = 3
 
@@ -109,6 +111,13 @@ class MainActivity : AppCompatActivity() {
 
     fun uploadClicked(view: View) {
         sendScores()
+    }
+
+    fun resetClicked(view: View) {
+        for (player in players) {
+            player.playerScore = 0
+        }
+        updateScores()
     }
 
     private fun setupSpinner(spinnerId: Int, stringarray: Int) {
@@ -197,16 +206,18 @@ class MainActivity : AppCompatActivity() {
     private fun sendScores() {
         val queue = Volley.newRequestQueue(this)
         val url = "https://yt2wj64lsk.execute-api.us-east-2.amazonaws.com/default/updateScoreHistory"
-        var body = constructBody(players[0])
+        val tournamentID = (System.currentTimeMillis() / 120000).toString() //tournamentID changes every 2 minutes...just for testing
+        val gameID = (System.currentTimeMillis() % 30000).toString() //gameIDs can repeat every 30 seconds...just for testing
+        var body = constructBody(players[0], tournamentID, gameID)
         var request = createRequest(Request.Method.PUT, body, url)
         queue.add(request)
-        body = constructBody(players[1])
+        body = constructBody(players[1], tournamentID, gameID)
         request = createRequest(Request.Method.PUT, body, url)
         queue.add(request)
     }
 
     private fun createRequest(method: Int, body: JSONObject?, url: String): JsonObjectRequest {
-        val request = object: JsonObjectRequest(method, url, body,
+        val request = object : JsonObjectRequest(method, url, body,
                 Response.Listener { response ->
                     println(response.toString())
                 },
@@ -223,15 +234,14 @@ class MainActivity : AppCompatActivity() {
         return request
     }
 
-    private fun constructBody(player: MainActivity.Player): JSONObject {
+    private fun constructBody(player: MainActivity.Player, tournamentID: String, gameID: String): JSONObject {
         val body = JSONObject()
         val pair1Player = player.playerName.substringBefore("/")
         val pair1Partner = player.playerName.substringAfter("/")
-        body.put("tournamentID", "1234567")
-        body.put("gameID", "668")
+        body.put("tournamentIDgameID", tournamentID + "||" + gameID)
         body.put("playerName", pair1Player)
         body.put("partnerName", pair1Partner)
-        body.put("score", player.playerScore.toString())
+        body.put("gameScore", player.playerScore.toString())
         return body
     }
 
